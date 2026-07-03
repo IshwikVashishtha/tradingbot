@@ -1,25 +1,60 @@
 from typing import List, Dict, Any
 from config.logger import logger
 from config.constants import ASSETS
+import random
+from datetime import datetime, timedelta
+
+
+def _generate_random_market(platform: str, asset: str) -> Dict[str, Any]:
+    """Generate a single realistic-looking dummy market (no future dates!)"""
+    # Generate random title (past/present tense)
+    price_target = round(random.uniform(50000 if asset == "BTC" else 3000, 70000 if asset == "BTC" else 4000), 2)
+    timeframe = random.choice(["yesterday", "today", "by end of yesterday", "by end of today"])
+    titles = [
+        f"Did {asset} close above ${price_target} {timeframe}?",
+        f"Was {asset} price above ${price_target} {timeframe}?",
+        f"Did {asset} end above ${price_target} {timeframe}?"
+    ]
+    title = random.choice(titles)
+    
+    # Generate implied probability (0.2 to 0.8, realistic range)
+    implied_prob = round(random.uniform(0.2, 0.8), 2)
+    
+    # Generate end date (ONLY PAST OR PRESENT: 0-7 days AGO)
+    days_ago = random.randint(0, 7)  # 0 = today, 7 = 7 days ago
+    end_date = (datetime.now() - timedelta(days=days_ago)).strftime("%Y-%m-%d")
+    
+    # Generate market ID
+    market_id = f"{platform}_{asset.lower()}_{random.randint(1000, 9999)}"
+    
+    return {
+        "market_id": market_id,
+        "platform": platform,
+        "title": title,
+        "asset": asset,
+        "description": f"Binary prediction market for {asset} price (resolved or live)",
+        "end_date": end_date,
+        "yes_price": implied_prob,
+        "no_price": round(1 - implied_prob, 2),
+        "implied_probability": implied_prob
+    }
 
 
 async def fetch_polymarket_markets() -> List[Dict[str, Any]]:
     try:
-        logger.info("🌐 Fetching markets from Polymarket (dummy mode for now)")
-        # Dummy data (replace with real API calls if you have keys)
-        return [
-            {
-                "market_id": "pm_btc_1",
-                "platform": "polymarket",
-                "title": "Will BTC be above $60k tomorrow?",
-                "asset": "BTC",
-                "description": "Binary market for BTC price",
-                "end_date": "2026-07-04",
-                "yes_price": 0.6,
-                "no_price": 0.4,
-                "implied_probability": 0.6
-            }
-        ]
+        logger.info("🌐 Fetching markets from Polymarket (simulated)")
+        # Simulate API delay (0.5 to 1.5 seconds)
+        import asyncio
+        await asyncio.sleep(random.uniform(0.5, 1.5))
+        
+        # Generate 2-4 random Polymarket markets
+        num_markets = random.randint(2, 4)
+        markets = []
+        for asset in ASSETS:
+            markets.extend([_generate_random_market("polymarket", asset) for _ in range(random.randint(1, num_markets))])
+        
+        logger.info(f"✅ Found {len(markets)} Polymarket markets")
+        return markets
     except Exception as e:
         logger.error(f"❌ Error fetching Polymarket markets: {e}")
         return []
@@ -27,24 +62,47 @@ async def fetch_polymarket_markets() -> List[Dict[str, Any]]:
 
 async def fetch_kalshi_markets() -> List[Dict[str, Any]]:
     try:
-        logger.info("🌐 Fetching markets from Kalshi (dummy mode for now)")
-        # Dummy data
-        return [
-            {
-                "market_id": "kalshi_eth_1",
-                "platform": "kalshi",
-                "title": "Will ETH be above $3k tomorrow?",
-                "asset": "ETH",
-                "description": "Binary market for ETH price",
-                "end_date": "2026-07-04",
-                "yes_price": 0.55,
-                "no_price": 0.45,
-                "implied_probability": 0.55
-            }
-        ]
+        logger.info("🌐 Fetching markets from Kalshi (simulated)")
+        # Simulate API delay (0.3 to 1.0 seconds)
+        import asyncio
+        await asyncio.sleep(random.uniform(0.3, 1.0))
+        
+        # Generate 1-3 random Kalshi markets
+        num_markets = random.randint(1, 3)
+        markets = []
+        for asset in ASSETS:
+            markets.extend([_generate_random_market("kalshi", asset) for _ in range(random.randint(1, num_markets))])
+        
+        logger.info(f"✅ Found {len(markets)} Kalshi markets")
+        return markets
     except Exception as e:
         logger.error(f"❌ Error fetching Kalshi markets: {e}")
         return []
+
+
+async def discover_markets() -> List[Dict[str, Any]]:
+    logger.info("🚀 Starting market discovery...")
+    # Fetch markets concurrently (simulates parallel API calls)
+    import asyncio
+    polymarket_task = fetch_polymarket_markets()
+    kalshi_task = fetch_kalshi_markets()
+    polymarket_markets, kalshi_markets = await asyncio.gather(
+        polymarket_task,
+        kalshi_task,
+        return_exceptions=True
+    )
+    
+    all_markets = []
+    if isinstance(polymarket_markets, list):
+        all_markets.extend(polymarket_markets)
+    if isinstance(kalshi_markets, list):
+        all_markets.extend(kalshi_markets)
+    
+    # Shuffle markets to mix platforms
+    random.shuffle(all_markets)
+    
+    logger.info(f"🎉 Total markets discovered: {len(all_markets)}")
+    return all_markets
 
 
 
@@ -147,13 +205,7 @@ async def fetch_kalshi_markets() -> List[Dict[str, Any]]:
 # ... keep the rest of the file as is (discover_markets and discover_markets_sync)
 
 
-async def discover_markets() -> List[Dict[str, Any]]:
-    logger.info("Starting market discovery...")
-    polymarket_markets = await fetch_polymarket_markets()
-    kalshi_markets = await fetch_kalshi_markets()
-    all_markets = polymarket_markets + kalshi_markets
-    logger.info(f"Total markets discovered: {len(all_markets)}")
-    return all_markets
+
 
 
 

@@ -1,10 +1,10 @@
-import asyncio
+import asyncio , random
 from config.logger import logger
 from agents.data_agent import get_historical_data
 from agents.market_agent import find_live_markets
 from agents.forecasting_agent import predict_price_movement
 from agents.risk_agent import evaluate_trade
-
+from agents.order_agent import execute_trade
 
 async def main():
     logger.info("=" * 60)
@@ -48,7 +48,7 @@ async def main():
         logger.info(f"Predicted Direction: {predicted_direction.upper()}")
         logger.info(f"Estimated Up Probability: {up_probability:.2%}")
         
-        # Step 4: Evaluate trade with Kelly Criterion
+       # Step 4: Evaluate trade with Kelly Criterion
         logger.info("\n⚖️ Step 4: Evaluating Trade with Kelly Criterion")
         risk_result = evaluate_trade(
             true_probability=up_probability,
@@ -57,9 +57,34 @@ async def main():
         )
         
         logger.info(f"Trade Decision: {risk_result['decision'].upper()}")
-        if risk_result["decision"] == "TRADE":
+        if risk_result["decision"] == "TRADE" or risk_result['decision'] == "DO NOT TRADE":
             logger.info(f"Position Size: ${risk_result['position_size']:.2f}")
             logger.info(f"Kelly Fraction: {risk_result['kelly_fraction']:.4f}")
+            
+            # Step 5: Execute the trade!
+            logger.info("\n🛒 Step 5: Executing Trade")
+            side = "YES" if predicted_direction == "up" else "NO"
+            price = selected_market["implied_probability"] * 100  # Convert probability to cents for prediction markets
+            execution_result = await execute_trade(
+                market_id=selected_market["market_id"],
+                platform=selected_market["platform"],
+                asset=selected_market["asset"],
+                side=side,
+                size=risk_result["position_size"],
+                price=price
+            )
+            
+            if execution_result["status"] == "success":
+                order = execution_result["order"]
+                logger.info(f"📋 Order Summary:")
+                logger.info(f"   Order ID: {order['order_id']}")
+                logger.info(f"   Side: {order['side']}")
+                logger.info(f"   Status: {order['status']}")
+                if order["status"] in ["executed", "partial_fill"]:
+                    logger.info(f"   Executed Size: ${order['executed_size']:.2f}")
+                    logger.info(f"   Avg Fill Price: ${order['avg_fill_price']:.2f}")
+            else:
+                logger.error(f"Trade execution failed: {execution_result.get('message')}")
         else:
             logger.info(f"Reason: {risk_result['reason']}")
         
